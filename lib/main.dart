@@ -7,20 +7,32 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Hive.initFlutter();
   await Hive.openBox('database');
-  runApp(const CupertinoApp(
-    debugShowCheckedModeBanner: false,
-    home: MyApp(),
-  ));
+  runApp(const MyApp());
 }
 
-class MyApp extends StatefulWidget {
+class MyApp extends StatelessWidget {
   const MyApp({super.key});
 
   @override
-  State<MyApp> createState() => _MyAppState();
+  Widget build(BuildContext context) {
+    return CupertinoApp(
+      debugShowCheckedModeBanner: false,
+      theme: const CupertinoThemeData(
+        brightness: Brightness.light, // 🔆 Force light mode
+      ),
+      home: const HomeScreen(),
+    );
+  }
 }
 
-class _MyAppState extends State<MyApp> {
+class HomeScreen extends StatefulWidget {
+  const HomeScreen({super.key});
+
+  @override
+  State<HomeScreen> createState() => _HomeScreenState();
+}
+
+class _HomeScreenState extends State<HomeScreen> {
   final TextEditingController _addTaskController = TextEditingController();
   final Box box = Hive.box('database');
   List<Map<String, dynamic>> todoList = [];
@@ -125,27 +137,22 @@ class _MyAppState extends State<MyApp> {
     );
   }
 
-  // New method to show developer info
   void _showDeveloperInfo() {
     showCupertinoDialog(
       context: context,
       builder: (_) => CupertinoAlertDialog(
         title: const Text('Developer Information'),
-        content: const Column(
+        content: Column(
           mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
+          children: const [
+            SizedBox(height: 8),
             Text('App Name: To-Do List'),
             SizedBox(height: 8),
             Text('Developer: Baligod, John Ivan'),
-            SizedBox(height: 8),
-            Text('                     Culala, Kristel'),
-            SizedBox(height: 8),
-            Text('                     Esguerra, Megan'),
-            SizedBox(height: 8),
-            Text('                     Estacio, Luis Gabrielle'),
-            SizedBox(height: 8),
-            Text('                     Macabali, Adrian Mhaki'),
+            Text('           Culala, Kristel'),
+            Text('           Esguerra, Megan'),
+            Text('           Estacio, Luis Gabrielle'),
+            Text('           Macabali, Adrian Mhaki'),
             SizedBox(height: 8),
             Text('Version: 1.0.0'),
             SizedBox(height: 8),
@@ -178,7 +185,9 @@ class _MyAppState extends State<MyApp> {
       final created = DateTime.tryParse(task['createdAt'] ?? '') ?? DateTime(2000);
       return created.isBefore(now) &&
           created.isAfter(now.subtract(const Duration(days: 7))) &&
-          !(created.year == now.year && created.month == now.month && created.day == now.day);
+          !(created.year == now.year &&
+              created.month == now.month &&
+              created.day == now.day);
     }).toList();
   }
 
@@ -213,7 +222,8 @@ class _MyAppState extends State<MyApp> {
         ),
         ...tasks.map((task) {
           final index = todoList.indexWhere((t) =>
-          t['task'] == task['task'] && t['createdAt'] == task['createdAt']);
+          t['task'] == task['task'] &&
+              t['createdAt'] == task['createdAt']);
           return GestureDetector(
             onTap: () => _toggleStatus(index),
             onLongPress: () => _showDeleteDialog(index),
@@ -221,7 +231,7 @@ class _MyAppState extends State<MyApp> {
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
               decoration: const BoxDecoration(
                 border: Border(
-                  bottom: BorderSide(color: CupertinoColors.systemGrey5),
+                  bottom: BorderSide(color: CupertinoColors.systemGrey4),
                 ),
               ),
               child: Column(
@@ -275,12 +285,11 @@ class _MyAppState extends State<MyApp> {
 
     return CupertinoPageScaffold(
       navigationBar: CupertinoNavigationBar(
-        middle: const Text('All iCloud', style: TextStyle(color: CupertinoColors.black)),
-        // Added info button in the top right corner
+        middle: const Text('All iCloud'),
         trailing: CupertinoButton(
           padding: EdgeInsets.zero,
           onPressed: _showDeveloperInfo,
-          child: const Icon(CupertinoIcons.info, size: 24),
+          child: const Icon(CupertinoIcons.info),
         ),
       ),
       child: SafeArea(
