@@ -18,7 +18,7 @@ class MyApp extends StatelessWidget {
     return CupertinoApp(
       debugShowCheckedModeBanner: false,
       theme: const CupertinoThemeData(
-        brightness: Brightness.light, // 🔆 Force light mode
+        brightness: Brightness.light,
       ),
       home: const HomeScreen(),
     );
@@ -36,6 +36,8 @@ class _HomeScreenState extends State<HomeScreen> {
   final TextEditingController _addTaskController = TextEditingController();
   final Box box = Hive.box('database');
   List<Map<String, dynamic>> todoList = [];
+  Set<int> selectedIndexes = {};
+  bool isSelectAll = false;
 
   @override
   void initState() {
@@ -75,8 +77,76 @@ class _HomeScreenState extends State<HomeScreen> {
   void _deleteTask(int index) {
     setState(() {
       todoList.removeAt(index);
+      selectedIndexes.remove(index);
+      if (todoList.isEmpty) {
+        selectedIndexes.clear();
+        isSelectAll = false;
+      } else {
+        // Recalculate selection based on new indexes
+        selectedIndexes = selectedIndexes
+            .where((i) => i < todoList.length)
+            .toSet();
+        isSelectAll = selectedIndexes.length == todoList.length;
+      }
       _saveToHive();
     });
+  }
+
+  void _deleteSelectedTasks() {
+    setState(() {
+      todoList = todoList
+          .asMap()
+          .entries
+          .where((entry) => !selectedIndexes.contains(entry.key))
+          .map((e) => e.value)
+          .toList();
+      selectedIndexes.clear();
+      isSelectAll = false;
+      _saveToHive();
+    });
+  }
+
+  void _toggleSelectAll() {
+    setState(() {
+      if (todoList.isEmpty) {
+        selectedIndexes.clear();
+        isSelectAll = false;
+        return;
+      }
+      if (selectedIndexes.length == todoList.length) {
+        selectedIndexes.clear();
+        isSelectAll = false;
+      } else {
+        selectedIndexes =
+        Set<int>.from(List.generate(todoList.length, (i) => i));
+        isSelectAll = true;
+      }
+    });
+  }
+
+
+  void _showDeleteSelectedDialog() {
+    showCupertinoDialog(
+      context: context,
+      builder: (_) => CupertinoAlertDialog(
+        title: const Text('Delete Selected'),
+        content: Text('Are you sure you want to delete ${selectedIndexes.length} selected task(s)?'),
+        actions: [
+          CupertinoDialogAction(
+            child: const Text('Cancel'),
+            onPressed: () => Navigator.pop(context),
+          ),
+          CupertinoDialogAction(
+            isDestructiveAction: true,
+            child: const Text('Delete'),
+            onPressed: () {
+              _deleteSelectedTasks();
+              Navigator.pop(context);
+            },
+          ),
+        ],
+      ),
+    );
   }
 
   void _showAddTaskDialog() {
@@ -113,51 +183,58 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  void _showDeleteDialog(int index) {
-    showCupertinoDialog(
-      context: context,
-      builder: (_) => CupertinoAlertDialog(
-        title: const Text('Delete Task'),
-        content: Text('Are you sure you want to delete "${todoList[index]['task']}"?'),
-        actions: [
-          CupertinoDialogAction(
-            child: const Text('Cancel'),
-            onPressed: () => Navigator.pop(context),
-          ),
-          CupertinoDialogAction(
-            isDestructiveAction: true,
-            child: const Text('Delete'),
-            onPressed: () {
-              _deleteTask(index);
-              Navigator.pop(context);
-            },
-          ),
-        ],
-      ),
-    );
-  }
-
   void _showDeveloperInfo() {
     showCupertinoDialog(
       context: context,
       builder: (_) => CupertinoAlertDialog(
         title: const Text('Developer Information'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: const [
-            SizedBox(height: 8),
-            Text('App Name: To-Do List'),
-            SizedBox(height: 8),
-            Text('Developer: Baligod, John Ivan'),
-            Text('           Culala, Kristel'),
-            Text('           Esguerra, Megan'),
-            Text('           Estacio, Luis Gabrielle'),
-            Text('           Macabali, Adrian Mhaki'),
-            SizedBox(height: 8),
-            Text('Version: 1.0.0'),
-            SizedBox(height: 8),
-            Text('Contact: ToDoList@gmail.com'),
-          ],
+        content: SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start, // Align left
+            mainAxisSize: MainAxisSize.min,
+            children: const [
+              SizedBox(height: 8),
+              Text(
+                'App Name: To-Do List',
+                textAlign: TextAlign.left,
+              ),
+              SizedBox(height: 8),
+              Text(
+                'Developer:',
+                textAlign: TextAlign.left,
+              ),
+              Text(
+                '                      Baligod, John Ivan',
+                textAlign: TextAlign.left,
+              ),
+              Text(
+                '                      Culala, Kristel',
+                textAlign: TextAlign.left,
+              ),
+              Text(
+                '                      Esguerra, Megan',
+                textAlign: TextAlign.left,
+              ),
+              Text(
+                '                      Estacio, Luis Gabrielle',
+                textAlign: TextAlign.left,
+              ),
+              Text(
+                '                      Macabali, Adrian Mhaki',
+                textAlign: TextAlign.left,
+              ),
+              SizedBox(height: 8),
+              Text(
+                'Version: 1.0.0',
+                textAlign: TextAlign.left,
+              ),
+              SizedBox(height: 8),
+              Text(
+                'Contact: ToDoList@gmail.com',
+                textAlign: TextAlign.left,
+              ),
+            ],
+          ),
         ),
         actions: [
           CupertinoDialogAction(
@@ -169,36 +246,7 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  List<Map<String, dynamic>> getTodayTasks() {
-    final now = DateTime.now();
-    return todoList.where((task) {
-      final created = DateTime.tryParse(task['createdAt'] ?? '') ?? DateTime(2000);
-      return created.year == now.year &&
-          created.month == now.month &&
-          created.day == now.day;
-    }).toList();
-  }
 
-  List<Map<String, dynamic>> getPrevious7DaysTasks() {
-    final now = DateTime.now();
-    return todoList.where((task) {
-      final created = DateTime.tryParse(task['createdAt'] ?? '') ?? DateTime(2000);
-      return created.isBefore(now) &&
-          created.isAfter(now.subtract(const Duration(days: 7))) &&
-          !(created.year == now.year &&
-              created.month == now.month &&
-              created.day == now.day);
-    }).toList();
-  }
-
-  List<Map<String, dynamic>> getPrevious30DaysTasks() {
-    final now = DateTime.now();
-    return todoList.where((task) {
-      final created = DateTime.tryParse(task['createdAt'] ?? '') ?? DateTime(2000);
-      return created.isBefore(now.subtract(const Duration(days: 7))) &&
-          created.isAfter(now.subtract(const Duration(days: 30)));
-    }).toList();
-  }
 
   String formatDateTime(String iso) {
     try {
@@ -208,81 +256,83 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
-  Widget buildTaskSection(String title, List<Map<String, dynamic>> tasks) {
-    if (tasks.isEmpty) return const SizedBox.shrink();
+  Widget buildTaskList() {
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Container(
-          padding: const EdgeInsets.fromLTRB(20, 16, 0, 8),
-          child: Text(
-            title,
-            style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-          ),
-        ),
-        ...tasks.map((task) {
-          final index = todoList.indexWhere((t) =>
-          t['task'] == task['task'] &&
-              t['createdAt'] == task['createdAt']);
-          return GestureDetector(
-            onTap: () => _toggleStatus(index),
-            onLongPress: () => _showDeleteDialog(index),
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-              decoration: const BoxDecoration(
-                border: Border(
-                  bottom: BorderSide(color: CupertinoColors.systemGrey4),
-                ),
+      children: todoList.asMap().entries.map((entry) {
+        final index = entry.key;
+        final task = entry.value;
+        final isSelected = selectedIndexes.contains(index);
+        return GestureDetector(
+          onLongPress: selectedIndexes.isNotEmpty
+              ? _showDeleteSelectedDialog
+              : () => _toggleStatus(index),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+            decoration: const BoxDecoration(
+              border: Border(
+                bottom: BorderSide(color: CupertinoColors.systemGrey4),
               ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
+            ),
+            child: Row(
+              children: [
+                GestureDetector(
+                  onTap: () {
+                    setState(() {
+                      if (isSelected) {
+                        selectedIndexes.remove(index);
+                      } else {
+                        selectedIndexes.add(index);
+                      }
+                      isSelectAll = selectedIndexes.length == todoList.length;
+                    });
+                  },
+                  child: Icon(
+                    isSelected
+                        ? CupertinoIcons.check_mark_circled_solid
+                        : CupertinoIcons.circle,
+                    color: isSelected
+                        ? CupertinoColors.activeBlue
+                        : CupertinoColors.systemGrey,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Expanded(
-                        child: Text(
-                          task['task'],
-                          style: TextStyle(
-                            fontSize: 18,
-                            decoration: task['status']
-                                ? TextDecoration.lineThrough
-                                : TextDecoration.none,
-                            color: task['status']
-                                ? CupertinoColors.inactiveGray
-                                : CupertinoColors.label,
-                          ),
+                      Text(
+                        task['task'],
+                        style: TextStyle(
+                          fontSize: 18,
+                          decoration: task['status']
+                              ? TextDecoration.lineThrough
+                              : TextDecoration.none,
+                          color: task['status']
+                              ? CupertinoColors.inactiveGray
+                              : CupertinoColors.label,
                         ),
                       ),
-                      Icon(
-                        task['status']
-                            ? CupertinoIcons.check_mark_circled_solid
-                            : CupertinoIcons.circle,
-                        color: task['status']
-                            ? CupertinoColors.activeGreen
-                            : CupertinoColors.systemGrey,
+                      const SizedBox(height: 4),
+                      Text(
+                        formatDateTime(task['createdAt']),
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: CupertinoColors.systemGrey,
+                        ),
                       ),
                     ],
                   ),
-                  const SizedBox(height: 4),
-                  Text(
-                    formatDateTime(task['createdAt']),
-                    style: const TextStyle(fontSize: 12, color: CupertinoColors.systemGrey),
-                  ),
-                ],
-              ),
+                ),
+              ],
             ),
-          );
-        }).toList(),
-      ],
+          ),
+        );
+      }).toList(),
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    final todayTasks = getTodayTasks();
-    final last7 = getPrevious7DaysTasks();
-    final last30 = getPrevious30DaysTasks();
-
     return CupertinoPageScaffold(
       navigationBar: CupertinoNavigationBar(
         middle: const Text('All iCloud'),
@@ -308,9 +358,7 @@ class _HomeScreenState extends State<HomeScreen> {
             Expanded(
               child: ListView(
                 children: [
-                  buildTaskSection("Today", todayTasks),
-                  buildTaskSection("Previous 7 Days", last7),
-                  buildTaskSection("Previous 30 Days", last30),
+                  buildTaskList(),
                 ],
               ),
             ),
@@ -320,9 +368,19 @@ class _HomeScreenState extends State<HomeScreen> {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  const Text('       '),
-                  Text('${todoList.length} Task${todoList.length == 1 ? '' : 's'}',
-                      style: const TextStyle(fontSize: 16)),
+                  GestureDetector(
+                    onTap: _toggleSelectAll,
+                    child: Icon(
+                      (todoList.isNotEmpty && selectedIndexes.length == todoList.length)
+                          ? CupertinoIcons.check_mark_circled_solid
+                          : CupertinoIcons.circle,
+                      color: CupertinoColors.systemBlue,
+                    ),
+                  ),
+                  Text(
+                    '${todoList.length} Task${todoList.length == 1 ? '' : 's'}',
+                    style: const TextStyle(fontSize: 16),
+                  ),
                   CupertinoButton(
                     padding: EdgeInsets.zero,
                     onPressed: _showAddTaskDialog,
