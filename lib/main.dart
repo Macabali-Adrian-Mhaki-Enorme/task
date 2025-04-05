@@ -7,10 +7,6 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Hive.initFlutter();
   await Hive.openBox('database');
-
-  // Uncomment below line ONLY ONCE to clear malformed data, then comment it again
-  // await Hive.box('database').clear();
-
   runApp(const CupertinoApp(
     debugShowCheckedModeBanner: false,
     home: MyApp(),
@@ -24,46 +20,19 @@ class MyApp extends StatefulWidget {
   State<MyApp> createState() => _MyAppState();
 }
 
-enum FilterType { today, last7days, last30days, all }
-
 class _MyAppState extends State<MyApp> {
   final TextEditingController _addTaskController = TextEditingController();
   final Box box = Hive.box('database');
   List<Map<String, dynamic>> todoList = [];
-  FilterType currentFilter = FilterType.all;
 
   @override
   void initState() {
     super.initState();
-    _loadTodoList();
-  }
-
-  void _loadTodoList() {
     final stored = box.get('todo');
-    if (stored is List) {
-      todoList = stored
-          .whereType<Map>()
-          .map<Map<String, dynamic>>((item) {
-        final task = item['task']?.toString() ?? '';
-        final status = item['status'] == true;
-        final createdAt = item['createdAt']?.toString() ?? DateTime.now().toIso8601String();
-
-        return {
-          'task': task,
-          'status': status,
-          'createdAt': createdAt,
-        };
-      }).toList();
-    } else {
-      todoList = [];
-    }
+    todoList = stored != null ? List<Map<String, dynamic>>.from(stored) : [];
   }
 
-  void _saveToHive() {
-    if (box.isOpen) {
-      box.put('todo', todoList);
-    }
-  }
+  void _saveToHive() => box.put('todo', todoList);
 
   void _addTask(String task) {
     setState(() {
@@ -148,52 +117,39 @@ class _MyAppState extends State<MyApp> {
     );
   }
 
-  List<Map<String, dynamic>> getFilteredTasks() {
+  Map<String, List<Map<String, dynamic>>> groupTasksByDateRange() {
     final now = DateTime.now();
-    return todoList.where((task) {
-      if (task['createdAt'] == null || task['createdAt'].toString().isEmpty) return false;
+    List<Map<String, dynamic>> today = [];
+    List<Map<String, dynamic>> last7 = [];
+    List<Map<String, dynamic>> last30 = [];
 
+    for (var task in todoList) {
+      if (task['createdAt'] == null) continue;
       DateTime created;
       try {
         created = DateTime.parse(task['createdAt']);
-      } catch (e) {
-        return false;
+      } catch (_) {
+        continue;
       }
 
-      switch (currentFilter) {
-        case FilterType.today:
-          return created.year == now.year &&
-              created.month == now.month &&
-              created.day == now.day;
-        case FilterType.last7days:
-          return created.isAfter(now.subtract(const Duration(days: 7)));
-        case FilterType.last30days:
-          return created.isAfter(now.subtract(const Duration(days: 30)));
-        case FilterType.all:
-          return true;
+      if (isSameDay(created, now)) {
+        today.add(task);
+      } else if (created.isAfter(now.subtract(const Duration(days: 7)))) {
+        last7.add(task);
+      } else if (created.isAfter(now.subtract(const Duration(days: 30)))) {
+        last30.add(task);
       }
-    }).toList();
+    }
+
+    return {
+      'Today': today,
+      'Previous 7 Days': last7,
+      'Previous 30 Days': last30,
+    };
   }
 
-  Widget buildFilterButton(String label, FilterType type) {
-    final isSelected = currentFilter == type;
-    return CupertinoButton(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      color: isSelected ? CupertinoColors.activeBlue : CupertinoColors.systemGrey5,
-      borderRadius: BorderRadius.circular(8),
-      onPressed: () {
-        setState(() {
-          currentFilter = type;
-        });
-      },
-      child: Text(
-        label,
-        style: TextStyle(
-          color: isSelected ? CupertinoColors.white : CupertinoColors.black,
-          fontSize: 14,
-        ),
-      ),
-    );
+  bool isSameDay(DateTime a, DateTime b) {
+    return a.year == b.year && a.month == b.month && a.day == b.day;
   }
 
   String formatDateTime(String isoString) {
@@ -205,9 +161,67 @@ class _MyAppState extends State<MyApp> {
     }
   }
 
+  Widget buildTaskTile(Map<String, dynamic> task) {
+    final createdTime = formatDateTime(task['createdAt']);
+    final realIndex = todoList.indexWhere((t) =>
+    t['task'] == task['task'] && t['createdAt'] == task['createdAt']);
+
+    return GestureDetector(
+      onTap: () => _toggleStatus(realIndex),
+      onLongPress: () => _showDeleteDialog(realIndex),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+        decoration: const BoxDecoration(
+          border: Border(
+              bottom: BorderSide(color: CupertinoColors.systemGrey5)),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Expanded(
+                  child: Text(
+                    task['task'],
+                    style: TextStyle(
+                      fontSize: 18,
+                      decoration: task['status']
+                          ? TextDecoration.lineThrough
+                          : TextDecoration.none,
+                      color: task['status']
+                          ? CupertinoColors.inactiveGray
+                          : CupertinoColors.label,
+                    ),
+                  ),
+                ),
+                Icon(
+                  task['status']
+                      ? CupertinoIcons.check_mark_circled_solid
+                      : CupertinoIcons.circle,
+                  color: task['status']
+                      ? CupertinoColors.activeGreen
+                      : CupertinoColors.systemGrey2,
+                ),
+              ],
+            ),
+            const SizedBox(height: 4),
+            Text(
+              createdTime,
+              style: const TextStyle(
+                fontSize: 12,
+                color: CupertinoColors.systemGrey,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    final filteredTasks = getFilteredTasks();
+    final groupedTasks = groupTasksByDateRange();
 
     return CupertinoPageScaffold(
       navigationBar: const CupertinoNavigationBar(
@@ -225,88 +239,23 @@ class _MyAppState extends State<MyApp> {
                 ),
               ),
             ),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                children: [
-                  buildFilterButton('Today', FilterType.today),
-                  buildFilterButton('Last 7 Days', FilterType.last7days),
-                  buildFilterButton('Last 30 Days', FilterType.last30days),
-                  buildFilterButton('All', FilterType.all),
-                ],
-              ),
-            ),
             const Divider(height: 1),
             Expanded(
-              child: filteredTasks.isEmpty
-                  ? const Center(
-                child: Text(
-                  'No tasks found.',
-                  style: TextStyle(color: CupertinoColors.systemGrey),
-                ),
-              )
-                  : ListView.builder(
-                itemCount: filteredTasks.length,
-                itemBuilder: (context, index) {
-                  final task = filteredTasks[index];
-                  final realIndex = todoList.indexWhere((t) =>
-                  t['task'] == task['task'] &&
-                      t['createdAt'] == task['createdAt']);
-                  final createdTime = formatDateTime(task['createdAt']);
-
-                  return GestureDetector(
-                    onTap: () => _toggleStatus(realIndex),
-                    onLongPress: () => _showDeleteDialog(realIndex),
-                    child: Container(
-                      decoration: const BoxDecoration(
-                        border: Border(
-                            bottom: BorderSide(color: CupertinoColors.systemGrey5)),
-                      ),
-                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Expanded(
-                                child: Text(
-                                  task['task'],
-                                  style: TextStyle(
-                                    fontSize: 18,
-                                    decoration: task['status']
-                                        ? TextDecoration.lineThrough
-                                        : TextDecoration.none,
-                                    color: task['status']
-                                        ? CupertinoColors.inactiveGray
-                                        : CupertinoColors.label,
-                                  ),
-                                ),
-                              ),
-                              Icon(
-                                task['status']
-                                    ? CupertinoIcons.check_mark_circled_solid
-                                    : CupertinoIcons.circle,
-                                color: task['status']
-                                    ? CupertinoColors.activeGreen
-                                    : CupertinoColors.systemGrey2,
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            createdTime,
+              child: ListView(
+                children: [
+                  for (final section in ['Today', 'Previous 7 Days', 'Previous 30 Days'])
+                    if (groupedTasks[section]!.isNotEmpty) ...[
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(20, 16, 0, 4),
+                        child: Text(section,
                             style: const TextStyle(
-                              fontSize: 12,
-                              color: CupertinoColors.systemGrey,
-                            ),
-                          ),
-                        ],
+                                fontSize: 20,
+                                fontWeight: FontWeight.bold,
+                                color: CupertinoColors.black)),
                       ),
-                    ),
-                  );
-                },
+                      ...groupedTasks[section]!.map(buildTaskTile).toList(),
+                    ],
+                ],
               ),
             ),
             Container(
@@ -316,7 +265,7 @@ class _MyAppState extends State<MyApp> {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   const Text('       '),
-                  Text('${filteredTasks.length} Task${filteredTasks.length == 1 ? '' : 's'}',
+                  Text('${todoList.length} Task${todoList.length == 1 ? '' : 's'}',
                       style: const TextStyle(fontSize: 16)),
                   CupertinoButton(
                     padding: EdgeInsets.zero,
