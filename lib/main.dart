@@ -125,6 +125,43 @@ class _MyAppState extends State<MyApp> {
     );
   }
 
+  // New method to show developer info
+  void _showDeveloperInfo() {
+    showCupertinoDialog(
+      context: context,
+      builder: (_) => CupertinoAlertDialog(
+        title: const Text('Developer Information'),
+        content: const Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('App Name: To-Do List'),
+            SizedBox(height: 8),
+            Text('Developer: Baligod, John Ivan'),
+            SizedBox(height: 8),
+            Text('                     Culala, Kristel'),
+            SizedBox(height: 8),
+            Text('                     Esguerra, Megan'),
+            SizedBox(height: 8),
+            Text('                     Estacio, Luis Gabrielle'),
+            SizedBox(height: 8),
+            Text('                     Macabali, Adrian Mhaki'),
+            SizedBox(height: 8),
+            Text('Version: 1.0.0'),
+            SizedBox(height: 8),
+            Text('Contact: ToDoList@gmail.com'),
+          ],
+        ),
+        actions: [
+          CupertinoDialogAction(
+            child: const Text('Close'),
+            onPressed: () => Navigator.pop(context),
+          ),
+        ],
+      ),
+    );
+  }
+
   List<Map<String, dynamic>> getTodayTasks() {
     final now = DateTime.now();
     return todoList.where((task) {
@@ -237,8 +274,14 @@ class _MyAppState extends State<MyApp> {
     final last30 = getPrevious30DaysTasks();
 
     return CupertinoPageScaffold(
-      navigationBar: const CupertinoNavigationBar(
-        middle: Text('All iCloud', style: TextStyle(color: CupertinoColors.black)),
+      navigationBar: CupertinoNavigationBar(
+        middle: const Text('All iCloud', style: TextStyle(color: CupertinoColors.black)),
+        // Added info button in the top right corner
+        trailing: CupertinoButton(
+          padding: EdgeInsets.zero,
+          onPressed: _showDeveloperInfo,
+          child: const Icon(CupertinoIcons.info, size: 24),
+        ),
       ),
       child: SafeArea(
         child: Column(
