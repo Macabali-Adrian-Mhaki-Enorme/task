@@ -28,8 +28,16 @@ class _MyAppState extends State<MyApp> {
   @override
   void initState() {
     super.initState();
+    _loadTasks();
+  }
+
+  void _loadTasks() {
     final stored = box.get('todo');
-    todoList = stored != null ? List<Map<String, dynamic>>.from(stored) : [];
+    if (stored != null) {
+      todoList = (stored as List).map<Map<String, dynamic>>((item) {
+        return Map<String, dynamic>.from(item);
+      }).toList();
+    }
   }
 
   void _saveToHive() => box.put('todo', todoList);
@@ -117,111 +125,116 @@ class _MyAppState extends State<MyApp> {
     );
   }
 
-  Map<String, List<Map<String, dynamic>>> groupTasksByDateRange() {
+  List<Map<String, dynamic>> getTodayTasks() {
     final now = DateTime.now();
-    List<Map<String, dynamic>> today = [];
-    List<Map<String, dynamic>> last7 = [];
-    List<Map<String, dynamic>> last30 = [];
-
-    for (var task in todoList) {
-      if (task['createdAt'] == null) continue;
-      DateTime created;
-      try {
-        created = DateTime.parse(task['createdAt']);
-      } catch (_) {
-        continue;
-      }
-
-      if (isSameDay(created, now)) {
-        today.add(task);
-      } else if (created.isAfter(now.subtract(const Duration(days: 7)))) {
-        last7.add(task);
-      } else if (created.isAfter(now.subtract(const Duration(days: 30)))) {
-        last30.add(task);
-      }
-    }
-
-    return {
-      'Today': today,
-      'Previous 7 Days': last7,
-      'Previous 30 Days': last30,
-    };
+    return todoList.where((task) {
+      final created = DateTime.tryParse(task['createdAt'] ?? '') ?? DateTime(2000);
+      return created.year == now.year &&
+          created.month == now.month &&
+          created.day == now.day;
+    }).toList();
   }
 
-  bool isSameDay(DateTime a, DateTime b) {
-    return a.year == b.year && a.month == b.month && a.day == b.day;
+  List<Map<String, dynamic>> getPrevious7DaysTasks() {
+    final now = DateTime.now();
+    return todoList.where((task) {
+      final created = DateTime.tryParse(task['createdAt'] ?? '') ?? DateTime(2000);
+      return created.isBefore(now) &&
+          created.isAfter(now.subtract(const Duration(days: 7))) &&
+          !(created.year == now.year && created.month == now.month && created.day == now.day);
+    }).toList();
   }
 
-  String formatDateTime(String isoString) {
+  List<Map<String, dynamic>> getPrevious30DaysTasks() {
+    final now = DateTime.now();
+    return todoList.where((task) {
+      final created = DateTime.tryParse(task['createdAt'] ?? '') ?? DateTime(2000);
+      return created.isBefore(now.subtract(const Duration(days: 7))) &&
+          created.isAfter(now.subtract(const Duration(days: 30)));
+    }).toList();
+  }
+
+  String formatDateTime(String iso) {
     try {
-      final dt = DateTime.parse(isoString);
-      return DateFormat('dd MMM yyyy, hh:mm a').format(dt);
+      return DateFormat('dd MMM yyyy, hh:mm a').format(DateTime.parse(iso));
     } catch (_) {
       return '';
     }
   }
 
-  Widget buildTaskTile(Map<String, dynamic> task) {
-    final createdTime = formatDateTime(task['createdAt']);
-    final realIndex = todoList.indexWhere((t) =>
-    t['task'] == task['task'] && t['createdAt'] == task['createdAt']);
-
-    return GestureDetector(
-      onTap: () => _toggleStatus(realIndex),
-      onLongPress: () => _showDeleteDialog(realIndex),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-        decoration: const BoxDecoration(
-          border: Border(
-              bottom: BorderSide(color: CupertinoColors.systemGrey5)),
+  Widget buildTaskSection(String title, List<Map<String, dynamic>> tasks) {
+    if (tasks.isEmpty) return const SizedBox.shrink();
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          padding: const EdgeInsets.fromLTRB(20, 16, 0, 8),
+          child: Text(
+            title,
+            style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+          ),
         ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Expanded(
-                  child: Text(
-                    task['task'],
-                    style: TextStyle(
-                      fontSize: 18,
-                      decoration: task['status']
-                          ? TextDecoration.lineThrough
-                          : TextDecoration.none,
-                      color: task['status']
-                          ? CupertinoColors.inactiveGray
-                          : CupertinoColors.label,
-                    ),
+        ...tasks.map((task) {
+          final index = todoList.indexWhere((t) =>
+          t['task'] == task['task'] && t['createdAt'] == task['createdAt']);
+          return GestureDetector(
+            onTap: () => _toggleStatus(index),
+            onLongPress: () => _showDeleteDialog(index),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+              decoration: const BoxDecoration(
+                border: Border(
+                  bottom: BorderSide(color: CupertinoColors.systemGrey5),
+                ),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          task['task'],
+                          style: TextStyle(
+                            fontSize: 18,
+                            decoration: task['status']
+                                ? TextDecoration.lineThrough
+                                : TextDecoration.none,
+                            color: task['status']
+                                ? CupertinoColors.inactiveGray
+                                : CupertinoColors.label,
+                          ),
+                        ),
+                      ),
+                      Icon(
+                        task['status']
+                            ? CupertinoIcons.check_mark_circled_solid
+                            : CupertinoIcons.circle,
+                        color: task['status']
+                            ? CupertinoColors.activeGreen
+                            : CupertinoColors.systemGrey,
+                      ),
+                    ],
                   ),
-                ),
-                Icon(
-                  task['status']
-                      ? CupertinoIcons.check_mark_circled_solid
-                      : CupertinoIcons.circle,
-                  color: task['status']
-                      ? CupertinoColors.activeGreen
-                      : CupertinoColors.systemGrey2,
-                ),
-              ],
-            ),
-            const SizedBox(height: 4),
-            Text(
-              createdTime,
-              style: const TextStyle(
-                fontSize: 12,
-                color: CupertinoColors.systemGrey,
+                  const SizedBox(height: 4),
+                  Text(
+                    formatDateTime(task['createdAt']),
+                    style: const TextStyle(fontSize: 12, color: CupertinoColors.systemGrey),
+                  ),
+                ],
               ),
             ),
-          ],
-        ),
-      ),
+          );
+        }).toList(),
+      ],
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    final groupedTasks = groupTasksByDateRange();
+    final todayTasks = getTodayTasks();
+    final last7 = getPrevious7DaysTasks();
+    final last30 = getPrevious30DaysTasks();
 
     return CupertinoPageScaffold(
       navigationBar: const CupertinoNavigationBar(
@@ -231,7 +244,7 @@ class _MyAppState extends State<MyApp> {
         child: Column(
           children: [
             const Padding(
-              padding: EdgeInsets.fromLTRB(20, 12, 20, 8),
+              padding: EdgeInsets.fromLTRB(20, 16, 20, 8),
               child: Center(
                 child: Text(
                   'To-Do List',
@@ -243,18 +256,9 @@ class _MyAppState extends State<MyApp> {
             Expanded(
               child: ListView(
                 children: [
-                  for (final section in ['Today', 'Previous 7 Days', 'Previous 30 Days'])
-                    if (groupedTasks[section]!.isNotEmpty) ...[
-                      Padding(
-                        padding: const EdgeInsets.fromLTRB(20, 16, 0, 4),
-                        child: Text(section,
-                            style: const TextStyle(
-                                fontSize: 20,
-                                fontWeight: FontWeight.bold,
-                                color: CupertinoColors.black)),
-                      ),
-                      ...groupedTasks[section]!.map(buildTaskTile).toList(),
-                    ],
+                  buildTaskSection("Today", todayTasks),
+                  buildTaskSection("Previous 7 Days", last7),
+                  buildTaskSection("Previous 30 Days", last30),
                 ],
               ),
             ),
