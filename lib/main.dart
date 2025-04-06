@@ -18,7 +18,7 @@ class MyApp extends StatelessWidget {
     return CupertinoApp(
       debugShowCheckedModeBanner: false,
       theme: const CupertinoThemeData(
-        brightness: Brightness.light, // 🔆 Force light mode
+        brightness: Brightness.light,
       ),
       home: const HomeScreen(),
     );
@@ -36,6 +36,8 @@ class _HomeScreenState extends State<HomeScreen> {
   final TextEditingController _addTaskController = TextEditingController();
   final Box box = Hive.box('database');
   List<Map<String, dynamic>> todoList = [];
+  bool selectionMode = false;
+  Set<int> selectedIndices = {};
 
   @override
   void initState() {
@@ -66,9 +68,23 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _toggleStatus(int index) {
+    if (selectionMode) {
+      _toggleSelection(index);
+    } else {
+      setState(() {
+        todoList[index]['status'] = !todoList[index]['status'];
+        _saveToHive();
+      });
+    }
+  }
+
+  void _toggleSelection(int index) {
     setState(() {
-      todoList[index]['status'] = !todoList[index]['status'];
-      _saveToHive();
+      if (selectedIndices.contains(index)) {
+        selectedIndices.remove(index);
+      } else {
+        selectedIndices.add(index);
+      }
     });
   }
 
@@ -77,6 +93,44 @@ class _HomeScreenState extends State<HomeScreen> {
       todoList.removeAt(index);
       _saveToHive();
     });
+  }
+
+  void _deleteSelectedTasks() {
+    setState(() {
+      final sorted = selectedIndices.toList()..sort((a, b) => b.compareTo(a));
+      for (var index in sorted) {
+        todoList.removeAt(index);
+      }
+      selectedIndices.clear();
+      selectionMode = false;
+      _saveToHive();
+    });
+  }
+
+  void _showDeleteSelectedDialog() {
+    showCupertinoDialog(
+      context: context,
+      builder: (_) => CupertinoAlertDialog(
+        title: const Text('Delete Selected Tasks'),
+        content: Text(
+          'Are you sure you want to delete ${selectedIndices.length} selected task${selectedIndices.length == 1 ? '' : 's'}?',
+        ),
+        actions: [
+          CupertinoDialogAction(
+            child: const Text('Cancel'),
+            onPressed: () => Navigator.pop(context),
+          ),
+          CupertinoDialogAction(
+            isDestructiveAction: true,
+            child: const Text('Delete'),
+            onPressed: () {
+              Navigator.pop(context);
+              _deleteSelectedTasks();
+            },
+          ),
+        ],
+      ),
+    );
   }
 
   void _showAddTaskDialog() {
@@ -113,30 +167,6 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  void _showDeleteDialog(int index) {
-    showCupertinoDialog(
-      context: context,
-      builder: (_) => CupertinoAlertDialog(
-        title: const Text('Delete Task'),
-        content: Text('Are you sure you want to delete "${todoList[index]['task']}"?'),
-        actions: [
-          CupertinoDialogAction(
-            child: const Text('Cancel'),
-            onPressed: () => Navigator.pop(context),
-          ),
-          CupertinoDialogAction(
-            isDestructiveAction: true,
-            child: const Text('Delete'),
-            onPressed: () {
-              _deleteTask(index);
-              Navigator.pop(context);
-            },
-          ),
-        ],
-      ),
-    );
-  }
-
   void _showDeveloperInfo() {
     showCupertinoDialog(
       context: context,
@@ -144,49 +174,22 @@ class _HomeScreenState extends State<HomeScreen> {
         title: const Text('Developer Information'),
         content: SingleChildScrollView(
           child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start, // Align left
+            crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
             children: const [
               SizedBox(height: 8),
-              Text(
-                'App Name: To-Do List',
-                textAlign: TextAlign.left,
-              ),
+              Text('App Name: To-Do List'),
               SizedBox(height: 8),
-              Text(
-                'Developer:',
-                textAlign: TextAlign.left,
-              ),
-              Text(
-                '                     Baligod, John Ivan',
-                textAlign: TextAlign.left,
-              ),
-              Text(
-                '                     Culala, Kristel',
-                textAlign: TextAlign.left,
-              ),
-              Text(
-                '                     Esguerra, Megan',
-                textAlign: TextAlign.left,
-              ),
-              Text(
-                '                     Estacio, Luis Gabrielle',
-                textAlign: TextAlign.left,
-              ),
-              Text(
-                '                     Macabali, Adrian Mhaki',
-                textAlign: TextAlign.left,
-              ),
+              Text('Developer:'),
+              Text('                     Baligod, John Ivan'),
+              Text('                     Culala, Kristel'),
+              Text('                     Esguerra, Megan'),
+              Text('                     Estacio, Luis Gabrielle'),
+              Text('                     Macabali, Adrian Mhaki'),
               SizedBox(height: 8),
-              Text(
-                'Version: 1.0.0',
-                textAlign: TextAlign.left,
-              ),
+              Text('Version: 1.0.0'),
               SizedBox(height: 8),
-              Text(
-                'Contact: ToDoList@gmail.com',
-                textAlign: TextAlign.left,
-              ),
+              Text('Contact: ToDoList@gmail.com'),
             ],
           ),
         ),
@@ -199,7 +202,6 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
     );
   }
-
 
   List<Map<String, dynamic>> getTodayTasks() {
     final now = DateTime.now();
@@ -254,11 +256,14 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
         ...tasks.map((task) {
           final index = todoList.indexWhere((t) =>
-          t['task'] == task['task'] &&
-              t['createdAt'] == task['createdAt']);
+          t['task'] == task['task'] && t['createdAt'] == task['createdAt']);
           return GestureDetector(
             onTap: () => _toggleStatus(index),
-            onLongPress: () => _showDeleteDialog(index),
+            onLongPress: () {
+              if (!selectionMode) {
+                _showDeleteDialog(index);
+              }
+            },
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
               decoration: const BoxDecoration(
@@ -266,13 +271,32 @@ class _HomeScreenState extends State<HomeScreen> {
                   bottom: BorderSide(color: CupertinoColors.systemGrey4),
                 ),
               ),
-              child: Column(
+              child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Text(
+                  if (selectionMode)
+                    Padding(
+                      padding: const EdgeInsets.only(right: 8.0, top: 4),
+                      child: CupertinoButton(
+                        padding: EdgeInsets.zero,
+                        minSize: 0,
+                        child: Icon(
+                          selectedIndices.contains(index)
+                              ? CupertinoIcons.check_mark_circled_solid
+                              : CupertinoIcons.circle,
+                          color: selectedIndices.contains(index)
+                              ? CupertinoColors.systemBlue
+                              : CupertinoColors.systemGrey,
+                          size: 24,
+                        ),
+                        onPressed: () => _toggleSelection(index),
+                      ),
+                    ),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
                           task['task'],
                           style: TextStyle(
                             fontSize: 18,
@@ -284,28 +308,55 @@ class _HomeScreenState extends State<HomeScreen> {
                                 : CupertinoColors.label,
                           ),
                         ),
-                      ),
-                      Icon(
-                        task['status']
-                            ? CupertinoIcons.check_mark_circled_solid
-                            : CupertinoIcons.circle,
-                        color: task['status']
-                            ? CupertinoColors.activeGreen
-                            : CupertinoColors.systemGrey,
-                      ),
-                    ],
+                        const SizedBox(height: 4),
+                        Text(
+                          formatDateTime(task['createdAt']),
+                          style: const TextStyle(
+                              fontSize: 12, color: CupertinoColors.systemGrey),
+                        ),
+                      ],
+                    ),
                   ),
-                  const SizedBox(height: 4),
-                  Text(
-                    formatDateTime(task['createdAt']),
-                    style: const TextStyle(fontSize: 12, color: CupertinoColors.systemGrey),
-                  ),
+                  if (!selectionMode)
+                    Icon(
+                      task['status']
+                          ? CupertinoIcons.check_mark_circled_solid
+                          : CupertinoIcons.circle,
+                      color: task['status']
+                          ? CupertinoColors.activeGreen
+                          : CupertinoColors.systemGrey,
+                    ),
                 ],
               ),
             ),
           );
         }).toList(),
       ],
+    );
+  }
+
+  void _showDeleteDialog(int index) {
+    showCupertinoDialog(
+      context: context,
+      builder: (_) => CupertinoAlertDialog(
+        title: const Text('Delete Task'),
+        content:
+        Text('Are you sure you want to delete "${todoList[index]['task']}"?'),
+        actions: [
+          CupertinoDialogAction(
+            child: const Text('Cancel'),
+            onPressed: () => Navigator.pop(context),
+          ),
+          CupertinoDialogAction(
+            isDestructiveAction: true,
+            child: const Text('Delete'),
+            onPressed: () {
+              _deleteTask(index);
+              Navigator.pop(context);
+            },
+          ),
+        ],
+      ),
     );
   }
 
@@ -352,10 +403,41 @@ class _HomeScreenState extends State<HomeScreen> {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  const Text('       '),
-                  Text('${todoList.length} Task${todoList.length == 1 ? '' : 's'}',
-                      style: const TextStyle(fontSize: 16)),
                   CupertinoButton(
+                    padding: EdgeInsets.zero,
+                    onPressed: () {
+                      setState(() {
+                        selectionMode = !selectionMode;
+                        selectedIndices.clear();
+                      });
+                    },
+                    child: Icon(
+                      selectionMode
+                          ? CupertinoIcons.clear_circled
+                          : CupertinoIcons.checkmark_circle,
+                      color: selectionMode
+                          ? CupertinoColors.destructiveRed
+                          : CupertinoColors.activeBlue,
+                    ),
+                  ),
+                  Text(
+                    '${todoList.length} Task${todoList.length == 1 ? '' : 's'}',
+                    style: const TextStyle(fontSize: 16),
+                  ),
+                  selectionMode
+                      ? CupertinoButton(
+                    padding: EdgeInsets.zero,
+                    onPressed: selectedIndices.isNotEmpty
+                        ? _showDeleteSelectedDialog
+                        : null,
+                    child: Icon(
+                      CupertinoIcons.delete,
+                      color: selectedIndices.isNotEmpty
+                          ? CupertinoColors.destructiveRed
+                          : CupertinoColors.systemGrey,
+                    ),
+                  )
+                      : CupertinoButton(
                     padding: EdgeInsets.zero,
                     onPressed: _showAddTaskDialog,
                     child: const Icon(CupertinoIcons.square_pencil,
