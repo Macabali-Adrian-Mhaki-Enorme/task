@@ -19,6 +19,7 @@ class MyApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       theme: const CupertinoThemeData(
         brightness: Brightness.light, // 🔆 Force light mode
+        scaffoldBackgroundColor: Color(0xFFF2F2F7),
       ),
       home: const HomeScreen(),
     );
@@ -34,8 +35,11 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   final TextEditingController _addTaskController = TextEditingController();
+  final TextEditingController _searchController = TextEditingController();
   final Box box = Hive.box('database');
   List<Map<String, dynamic>> todoList = [];
+
+  final Color iconColor = const Color(0xFFE4AF0A);
 
   @override
   void initState() {
@@ -144,7 +148,7 @@ class _HomeScreenState extends State<HomeScreen> {
         title: const Text('Developer Information'),
         content: SingleChildScrollView(
           child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start, // Align left
+            crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
             children: const [
               SizedBox(height: 8),
@@ -200,7 +204,6 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-
   List<Map<String, dynamic>> getTodayTasks() {
     final now = DateTime.now();
     return todoList.where((task) {
@@ -252,59 +255,82 @@ class _HomeScreenState extends State<HomeScreen> {
             style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
           ),
         ),
-        ...tasks.map((task) {
-          final index = todoList.indexWhere((t) =>
-          t['task'] == task['task'] &&
-              t['createdAt'] == task['createdAt']);
-          return GestureDetector(
-            onTap: () => _toggleStatus(index),
-            onLongPress: () => _showDeleteDialog(index),
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-              decoration: const BoxDecoration(
-                border: Border(
-                  bottom: BorderSide(color: CupertinoColors.systemGrey4),
-                ),
+        Container(
+          margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(10),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.05),
+                blurRadius: 2,
+                offset: const Offset(0, 1),
               ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
+            ],
+          ),
+          child: ListView.separated(
+            physics: const NeverScrollableScrollPhysics(),
+            shrinkWrap: true,
+            itemCount: tasks.length,
+            separatorBuilder: (context, index) => const Divider(
+              height: 1,
+              indent: 16,
+              endIndent: 16,
+            ),
+            itemBuilder: (context, itemIndex) {
+              final task = tasks[itemIndex];
+              final index = todoList.indexWhere((t) =>
+              t['task'] == task['task'] &&
+                  t['createdAt'] == task['createdAt']);
+
+              return GestureDetector(
+                onTap: () => _toggleStatus(index),
+                onLongPress: () => _showDeleteDialog(index),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Expanded(
-                        child: Text(
-                          task['task'],
-                          style: TextStyle(
-                            fontSize: 18,
-                            decoration: task['status']
-                                ? TextDecoration.lineThrough
-                                : TextDecoration.none,
-                            color: task['status']
-                                ? CupertinoColors.inactiveGray
-                                : CupertinoColors.label,
+                      Row(
+                        children: [
+                          Icon(
+                            task['status']
+                                ? CupertinoIcons.checkmark_circle_fill
+                                : CupertinoIcons.circle,
+                            color: task['status'] ? iconColor : CupertinoColors.systemGrey,
+                            size: 22,
                           ),
-                        ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Text(
+                              task['task'],
+                              style: TextStyle(
+                                fontSize: 16,
+                                decoration: task['status']
+                                    ? TextDecoration.lineThrough
+                                    : TextDecoration.none,
+                                color: task['status']
+                                    ? CupertinoColors.systemGrey
+                                    : CupertinoColors.black,
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
-                      Icon(
-                        task['status']
-                            ? CupertinoIcons.check_mark_circled_solid
-                            : CupertinoIcons.circle,
-                        color: task['status']
-                            ? CupertinoColors.activeGreen
-                            : CupertinoColors.systemGrey,
+                      Padding(
+                        padding: const EdgeInsets.only(left: 32),
+                        child: Text(
+                          formatDateTime(task['createdAt']),
+                          style: const TextStyle(fontSize: 12, color: CupertinoColors.systemGrey),
+                        ),
                       ),
                     ],
                   ),
-                  const SizedBox(height: 4),
-                  Text(
-                    formatDateTime(task['createdAt']),
-                    style: const TextStyle(fontSize: 12, color: CupertinoColors.systemGrey),
-                  ),
-                ],
-              ),
-            ),
-          );
-        }).toList(),
+                ),
+              );
+            },
+          ),
+        ),
       ],
     );
   }
@@ -315,28 +341,109 @@ class _HomeScreenState extends State<HomeScreen> {
     final last7 = getPrevious7DaysTasks();
     final last30 = getPrevious30DaysTasks();
 
+
+    final searchBarBgColor = Color(0xFFE3E3E8);
+
     return CupertinoPageScaffold(
+      backgroundColor: const Color(0xFFF2F2F7),
       navigationBar: CupertinoNavigationBar(
-        middle: const Text('All iCloud'),
+        backgroundColor: const Color(0xFFF2F2F7),
+        border: Border.all(color: Colors.transparent),
+        padding: const EdgeInsetsDirectional.only(start: 4.0, end: 8.0),
+        leading: CupertinoButton(
+          padding: EdgeInsets.zero,
+          onPressed: () {
+
+          },
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                CupertinoIcons.back,
+                color: iconColor,
+                size: 22,
+              ),
+              const SizedBox(width: 4),
+              Text(
+                'Folders',
+                style: TextStyle(
+                  color: iconColor,
+                  fontSize: 16,
+                ),
+              ),
+            ],
+          ),
+        ),
+        middle: null,
         trailing: CupertinoButton(
           padding: EdgeInsets.zero,
           onPressed: _showDeveloperInfo,
-          child: const Icon(CupertinoIcons.info),
+          child: Icon(
+            CupertinoIcons.ellipsis_circle,
+            color: iconColor,
+            size: 24,
+          ),
         ),
       ),
       child: SafeArea(
         child: Column(
           children: [
-            const Padding(
-              padding: EdgeInsets.fromLTRB(20, 16, 20, 8),
-              child: Center(
-                child: Text(
-                  'To-Do List',
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 12, 20, 8),
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: const Text(
+                  'All iCloud',
                   style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
                 ),
               ),
             ),
-            const Divider(height: 1),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
+              child: Container(
+                height: 36,
+                decoration: BoxDecoration(
+                  color: searchBarBgColor,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Row(
+                  children: [
+                    const SizedBox(width: 8),
+                    Icon(
+                      CupertinoIcons.search,
+                      color: CupertinoColors.systemGrey,
+                      size: 20,
+                    ),
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: CupertinoTextField(
+                        controller: _searchController,
+                        placeholder: 'Search',
+                        placeholderStyle: TextStyle(
+                          color: CupertinoColors.systemGrey,
+                          fontSize: 16,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.transparent,
+                          border: Border.all(color: Colors.transparent),
+                        ),
+                        padding: EdgeInsets.zero,
+                        style: TextStyle(
+                          color: CupertinoColors.systemGrey,
+                          fontSize: 16,
+                        ),
+                      ),
+                    ),
+                    Icon(
+                      CupertinoIcons.mic_fill,
+                      color: CupertinoColors.systemGrey,
+                      size: 20,
+                    ),
+                    const SizedBox(width: 8),
+                  ],
+                ),
+              ),
+            ),
             Expanded(
               child: ListView(
                 children: [
@@ -348,7 +455,7 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-              color: CupertinoColors.systemGroupedBackground,
+              color: const Color(0xFFF2F2F7),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
@@ -358,8 +465,11 @@ class _HomeScreenState extends State<HomeScreen> {
                   CupertinoButton(
                     padding: EdgeInsets.zero,
                     onPressed: _showAddTaskDialog,
-                    child: const Icon(CupertinoIcons.square_pencil,
-                        color: CupertinoColors.systemBlue),
+                    child: Icon(
+                      CupertinoIcons.square_pencil,
+                      color: iconColor,
+                      size: 22,
+                    ),
                   ),
                 ],
               ),
