@@ -2,6 +2,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:intl/intl.dart';
+import 'folders_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -21,7 +22,7 @@ class MyApp extends StatelessWidget {
         brightness: Brightness.light, // 🔆 Force light mode
         scaffoldBackgroundColor: Color(0xFFF2F2F7),
       ),
-      home: const HomeScreen(),
+      home: const FoldersScreen(totalTaskCount: 0),
     );
   }
 }
@@ -341,7 +342,6 @@ class _HomeScreenState extends State<HomeScreen> {
     final last7 = getPrevious7DaysTasks();
     final last30 = getPrevious30DaysTasks();
 
-
     final searchBarBgColor = Color(0xFFE3E3E8);
 
     return CupertinoPageScaffold(
@@ -353,7 +353,13 @@ class _HomeScreenState extends State<HomeScreen> {
         leading: CupertinoButton(
           padding: EdgeInsets.zero,
           onPressed: () {
-
+            // Updated to pass task count to FoldersScreen
+            Navigator.push(
+              context,
+              CupertinoPageRoute(
+                builder: (context) => FoldersScreen(totalTaskCount: todoList.length),
+              ),
+            );
           },
           child: Row(
             mainAxisSize: MainAxisSize.min,
