@@ -66,7 +66,7 @@ class _NotesScreenState extends State<NotesScreen> {
 
   void _createNewNote() {
     final now = DateTime.now();
-    final newNote = {
+    final tempNote = {
       'id': now.microsecondsSinceEpoch.toString(),
       'title': '',
       'content': '',
@@ -76,14 +76,29 @@ class _NotesScreenState extends State<NotesScreen> {
       'folder': 'All iCloud'
     };
 
-    setState(() {
-      notesList.insert(0, newNote);
-      _saveToHive();
-    });
+    Navigator.push(
+      context,
+      CupertinoPageRoute(
+        builder: (context) => NoteEditorScreen(
+          noteId: tempNote['id']! as String,
+          initialTitle: '',
+          initialContent: '',
+          onSave: (id, title, content) {
+            if (title.isNotEmpty || content.isNotEmpty) {
+              final newNote = {...tempNote};
+              newNote['title'] = title;
+              newNote['content'] = content;
 
-    _navigateToNoteEditor(newNote['id']?.toString() ?? '');
+              setState(() {
+                notesList.insert(0, newNote);
+                _saveToHive();
+              });
+            }
+          },
+        ),
+      ),
+    );
   }
-
   void _deleteSelectedNotes() {
     showCupertinoDialog(
       context: context,
@@ -286,7 +301,7 @@ class _NotesScreenState extends State<NotesScreen> {
           child: Text(
             'Cancel',
             style: TextStyle(
-              color: accentColor,
+              color: Colors.amber,
               fontSize: 16,
             ),
           ),
@@ -307,14 +322,14 @@ class _NotesScreenState extends State<NotesScreen> {
             children: [
               Icon(
                 CupertinoIcons.back,
-                color: accentColor,
+                color: Colors.amber,
                 size: 22,
               ),
               const SizedBox(width: 4),
               Text(
                 'Folders',
                 style: TextStyle(
-                  color: accentColor,
+                  color: Colors.amber,
                   fontSize: 16,
                 ),
               ),
@@ -327,7 +342,7 @@ class _NotesScreenState extends State<NotesScreen> {
           style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w600),
         )
             : const Text(
-          'All iCloud',
+          '',
           style: TextStyle(fontSize: 20, fontWeight: FontWeight.w600),
         ),
         trailing: _isSelecting
@@ -336,7 +351,7 @@ class _NotesScreenState extends State<NotesScreen> {
           onPressed: _selectedNotes.isNotEmpty ? _deleteSelectedNotes : null,
           child: Icon(
             CupertinoIcons.delete,
-            color: _selectedNotes.isNotEmpty ? accentColor : CupertinoColors.systemGrey,
+            color: _selectedNotes.isNotEmpty ? Colors.amber : CupertinoColors.systemGrey,
             size: 24,
           ),
         )
@@ -345,7 +360,7 @@ class _NotesScreenState extends State<NotesScreen> {
           onPressed: _showDeveloperInfo,
           child: Icon(
             CupertinoIcons.ellipsis_circle,
-            color: accentColor,
+            color: Colors.amber,
             size: 24,
           ),
         ),
@@ -354,54 +369,64 @@ class _NotesScreenState extends State<NotesScreen> {
         child: Column(
           children: [
             if (!_isSelecting) ...[
-              Padding(
+                Padding(
                 padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
-                child: Container(
-                  height: 36,
-                  decoration: BoxDecoration(
-                    color: CupertinoColors.systemGrey5,
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: Row(
-                    children: [
-                      const SizedBox(width: 8),
-                      const Icon(
-                        CupertinoIcons.search,
-                        color: CupertinoColors.systemGrey,
-                        size: 20,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'all iCloud',
+                      style: const TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
+                    ),
+                    const SizedBox(height: 8),
+                    Container(
+                      height: 36,
+                      decoration: BoxDecoration(
+                        color: CupertinoColors.systemGrey5,
+                        borderRadius: BorderRadius.circular(10),
                       ),
-                      const SizedBox(width: 6),
-                      Expanded(
-                        child: CupertinoTextField(
-                          controller: _searchController,
-                          placeholder: 'Search',
-                          onChanged: (value) {
-                            setState(() {
-                              _searchQuery = value;
-                            });
-                          },
-                          placeholderStyle: const TextStyle(
+                      child: Row(
+                        children: [
+                          const SizedBox(width: 8),
+                          const Icon(
+                            CupertinoIcons.search,
                             color: CupertinoColors.systemGrey,
-                            fontSize: 16,
+                            size: 20,
                           ),
-                          decoration: const BoxDecoration(
-                            color: Colors.transparent,
-                            border: Border(),
+                          const SizedBox(width: 6),
+                          Expanded(
+                            child: CupertinoTextField(
+                              controller: _searchController,
+                              placeholder: 'Search',
+                              onChanged: (value) {
+                                setState(() {
+                                  _searchQuery = value;
+                                });
+                              },
+                              placeholderStyle: const TextStyle(
+                                color: CupertinoColors.systemGrey,
+                                fontSize: 16,
+                              ),
+                              decoration: const BoxDecoration(
+                                color: Colors.transparent,
+                                border: Border(),
+                              ),
+                              padding: EdgeInsets.zero,
+                              style: const TextStyle(
+                                fontSize: 16,
+                              ),
+                            ),
                           ),
-                          padding: EdgeInsets.zero,
-                          style: const TextStyle(
-                            fontSize: 16,
+                          const Icon(
+                            CupertinoIcons.mic_fill,
+                            color: CupertinoColors.systemGrey,
+                            size: 20,
                           ),
-                        ),
+                          const SizedBox(width: 8),
+                        ],
                       ),
-                      const Icon(
-                        CupertinoIcons.mic_fill,
-                        color: CupertinoColors.systemGrey,
-                        size: 20,
-                      ),
-                      const SizedBox(width: 8),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
               ),
             ],
@@ -426,7 +451,7 @@ class _NotesScreenState extends State<NotesScreen> {
                     onPressed: _createNewNote,
                     child: Icon(
                       CupertinoIcons.square_pencil,
-                      color: accentColor,
+                      color: Colors.amber,
                       size: 22,
                     ),
                   ),
@@ -523,11 +548,11 @@ class _NotesScreenState extends State<NotesScreen> {
         margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
         decoration: BoxDecoration(
           color: isSelected
-              ? accentColor.withOpacity(0.1)
+              ? Colors.amber.withOpacity(0.1)
               : CupertinoColors.white,
           borderRadius: BorderRadius.circular(10),
           border: isSelected
-              ? Border.all(color: accentColor, width: 1.5)
+              ? Border.all(color: Colors.amber, width: 1.5)
               : null,
           boxShadow: [
             if (!isSelected)
@@ -548,7 +573,7 @@ class _NotesScreenState extends State<NotesScreen> {
                   if (note['isPinned'] && !_isSelecting)
                     Icon(
                       CupertinoIcons.pin_fill,
-                      color: accentColor,
+                      color: Colors.amber,
                       size: 16,
                     ),
                   if (note['isPinned'] && !_isSelecting)
@@ -558,7 +583,7 @@ class _NotesScreenState extends State<NotesScreen> {
                       isSelected
                           ? CupertinoIcons.checkmark_circle_fill
                           : CupertinoIcons.circle,
-                      color: isSelected ? accentColor : CupertinoColors.systemGrey,
+                      color: isSelected ? Colors.amber : CupertinoColors.systemGrey,
                       size: 20,
                     ),
                   if (_isSelecting)
@@ -570,7 +595,7 @@ class _NotesScreenState extends State<NotesScreen> {
                         fontSize: 17,
                         fontWeight: FontWeight.w600,
                         color: hasTitle
-                            ? (isSelected ? accentColor : CupertinoColors.black)
+                            ? (isSelected ? Colors.amber : CupertinoColors.black)
                             : CupertinoColors.systemGrey,
                       ),
                       maxLines: 1,
@@ -600,7 +625,7 @@ class _NotesScreenState extends State<NotesScreen> {
                   style: TextStyle(
                     fontSize: 15,
                     color: isSelected
-                        ? accentColor
+                        ? Colors.amber
                         : CupertinoColors.systemGrey,
                   ),
                   maxLines: 2,
@@ -615,7 +640,7 @@ class _NotesScreenState extends State<NotesScreen> {
                     style: TextStyle(
                       fontSize: 13,
                       color: isSelected
-                          ? accentColor
+                          ? Colors.amber
                           : CupertinoColors.systemGrey,
                     ),
                   ),
@@ -625,7 +650,7 @@ class _NotesScreenState extends State<NotesScreen> {
                     style: TextStyle(
                       fontSize: 13,
                       color: isSelected
-                          ? accentColor
+                          ? Colors.amber
                           : CupertinoColors.systemGrey,
                     ),
                   ),
@@ -684,16 +709,17 @@ class _NoteEditorScreenState extends State<NoteEditorScreen> {
       // Show alert if both title and content are empty
       showCupertinoDialog(
         context: context,
-        builder: (context) => CupertinoAlertDialog(
-          title: const Text('Empty Note'),
-          content: const Text('Please add some content before saving.'),
-          actions: [
-            CupertinoDialogAction(
-              child: const Text('OK'),
-              onPressed: () => Navigator.pop(context),
+        builder: (context) =>
+            CupertinoAlertDialog(
+              title: const Text('Empty Note'),
+              content: const Text('Please add some content before saving.'),
+              actions: [
+                CupertinoDialogAction(
+                  child: const Text('OK'),
+                  onPressed: () => Navigator.pop(context),
+                ),
+              ],
             ),
-          ],
-        ),
       );
     } else {
       // Save the note and pop the screen
@@ -724,38 +750,93 @@ class _NoteEditorScreenState extends State<NoteEditorScreen> {
         ),
       ),
       child: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            children: [
-              CupertinoTextField(
-                controller: _titleController,
-                placeholder: 'Title',
-                style: const TextStyle(
-                  fontSize: 22,
-                  fontWeight: FontWeight.w600,
+        child: Column(
+          children: [
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    SizedBox(
+                      height: 50,
+                      child: CupertinoTextField(
+                        controller: _titleController,
+                        placeholder: 'Title',
+                        style: const TextStyle(
+                          fontSize: 22,
+                          fontWeight: FontWeight.w600,
+                        ),
+                        padding: const EdgeInsets.symmetric(vertical: 10),
+                        decoration: const BoxDecoration(
+                          border: Border(),
+                        ),
+                        onChanged: (_) => setState(() {}),
+                      ),
+                    ),
+
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          CupertinoTextField(
+                            controller: _contentController,
+                            placeholder: 'Start typing...',
+                            maxLines: null,
+                            minLines: null, // Start with minimum 1 line
+                            expands: true,
+                            decoration: const BoxDecoration(
+                              border: Border(),
+                            ),
+                            style: const TextStyle(
+                              fontSize: 17,
+                            ),
+                            padding: const EdgeInsets.only(top: 8), // Adjust padding to push text up
+                            keyboardAppearance: Brightness.light,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
                 ),
-                decoration: const BoxDecoration(
-                  border: Border(),
-                ),
-                onChanged: (_) => setState(() {}),
               ),
-              Expanded(
-                child: CupertinoTextField(
-                  controller: _contentController,
-                  placeholder: 'Start typing...',
-                  maxLines: null,
-                  expands: true,
-                  decoration: const BoxDecoration(
-                    border: Border(),
-                  ),
-                  style: const TextStyle(
-                    fontSize: 17,
-                  ),
+            ),
+            // Bottom formatting toolbar
+            Container(
+              height: 44,
+              decoration: const BoxDecoration(
+                color: CupertinoColors.systemGrey6,
+                border: Border(
+                  top: BorderSide(color: CupertinoColors.systemGrey4, width: 0.5),
                 ),
               ),
-            ],
-          ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: [
+                  CupertinoButton(
+                    padding: EdgeInsets.zero,
+                    onPressed: () {},
+                    child: const Icon(CupertinoIcons.table, size: 22),
+                  ),
+                  CupertinoButton(
+                    padding: EdgeInsets.zero,
+                    onPressed: () {},
+                    child: const Icon(CupertinoIcons.textformat, size: 22),
+                  ),
+                  CupertinoButton(
+                    padding: EdgeInsets.zero,
+                    onPressed: () {},
+                    child: const Icon(CupertinoIcons.list_bullet, size: 22),
+                  ),
+                  CupertinoButton(
+                    padding: EdgeInsets.zero,
+                    onPressed: () {},
+                    child: const Icon(CupertinoIcons.ellipsis, size: 22),
+                  ),
+                ],
+              ),
+            ),
+          ],
         ),
       ),
     );

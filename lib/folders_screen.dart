@@ -105,7 +105,7 @@ class _FoldersScreenState extends State<FoldersScreen> {
           child: Text(
             'Edit',
             style: TextStyle(
-              color: accentColor,
+              color: Colors.amber,
               fontSize: 16,
             ),
           ),
@@ -143,7 +143,7 @@ class _FoldersScreenState extends State<FoldersScreen> {
                     ),
                     Icon(
                       _showFolders ? CupertinoIcons.chevron_down : CupertinoIcons.chevron_right,
-                      color: accentColor,
+                      color: Colors.amber,
                       size: 16,
                     ),
                   ],
@@ -197,7 +197,7 @@ class _FoldersScreenState extends State<FoldersScreen> {
                                 children: [
                                   Icon(
                                     CupertinoIcons.folder,
-                                    color: accentColor,
+                                    color: Colors.amber,
                                     size: 24,
                                   ),
                                   const SizedBox(width: 12),
@@ -252,7 +252,7 @@ class _FoldersScreenState extends State<FoldersScreen> {
                           ),
                           Icon(
                             _showTags ? CupertinoIcons.chevron_down : CupertinoIcons.chevron_right,
-                            color: accentColor,
+                            color: Colors.amber,
                             size: 16,
                           ),
                         ],
@@ -299,7 +299,7 @@ class _FoldersScreenState extends State<FoldersScreen> {
                     onPressed: _showNewFolderDialog,
                     child: Icon(
                       CupertinoIcons.folder_badge_plus,
-                      color: accentColor,
+                      color: Colors.amber,
                       size: 22,
                     ),
                   ),
