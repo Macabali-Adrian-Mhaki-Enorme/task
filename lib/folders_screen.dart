@@ -4,30 +4,33 @@ import 'package:hive_flutter/hive_flutter.dart';
 import 'main.dart';
 
 class FoldersScreen extends StatefulWidget {
-  final int totalTaskCount;
+  final int totalNotesCount;
 
   const FoldersScreen({
-    super.key,
-    required this.totalTaskCount,
-  });
+    Key? key,
+    required this.totalNotesCount,
+  }) : super(key: key);
 
   @override
   State<FoldersScreen> createState() => _FoldersScreenState();
 }
 
 class _FoldersScreenState extends State<FoldersScreen> {
-  final Color iconColor = const Color(0xFFE4AF0A);
+  final Color accentColor = const Color(0xFF007AFF);
   final TextEditingController _folderNameController = TextEditingController();
   bool _showFolders = true;
   bool _showTags = false;
-  final Box box = Hive.box('database');
-
-  // Folders data
-  late List<Map<String, dynamic>> folders;
+  late final Box box;
+  List<Map<String, dynamic>> folders = [];
 
   @override
   void initState() {
     super.initState();
+    _initializeData();
+  }
+
+  Future<void> _initializeData() async {
+    box = await Hive.openBox('notes_database');
     _loadFolders();
   }
 
@@ -35,37 +38,39 @@ class _FoldersScreenState extends State<FoldersScreen> {
     try {
       final stored = box.get('folders');
       if (stored != null) {
-        // Convert stored data to the correct type
-        folders = List<Map<String, dynamic>>.from(
-            (stored as List).map((item) => Map<String, dynamic>.from(item))
-        );
+        setState(() {
+          folders = List<Map<String, dynamic>>.from(
+              (stored as List).map((item) => Map<String, dynamic>.from(item)));
 
-        final allICloudIndex = folders.indexWhere((folder) => folder['name'] == 'All iCloud');
-        if (allICloudIndex != -1) {
-          folders[allICloudIndex]['count'] = widget.totalTaskCount;
-        }
+          final allICloudIndex = folders.indexWhere((folder) => folder['name'] == 'All iCloud');
+          if (allICloudIndex != -1) {
+            folders[allICloudIndex]['count'] = widget.totalNotesCount;
+          }
+        });
       } else {
-
-        folders = [
-          {'name': 'All iCloud', 'count': widget.totalTaskCount, 'isSelected': true},
-          {'name': 'Work', 'count': 0, 'isSelected': false},
-          {'name': 'Personal', 'count': 0, 'isSelected': false},
-          {'name': 'School', 'count': 0, 'isSelected': false},
-          {'name': 'Shopping', 'count': 0, 'isSelected': false},
-        ];
-        _saveToHive();
+        setState(() {
+          folders = [
+            {'name': 'All iCloud', 'count': widget.totalNotesCount, 'isSelected': true},
+            {'name': 'Personal', 'count': 0, 'isSelected': false},
+            {'name': 'Work', 'count': 0, 'isSelected': false},
+            {'name': 'Ideas', 'count': 0, 'isSelected': false},
+            {'name': 'Journal', 'count': 0, 'isSelected': false},
+          ];
+          _saveToHive();
+        });
       }
     } catch (e) {
       debugPrint('Error loading folders: $e');
-
-      folders = [
-        {'name': 'All iCloud', 'count': widget.totalTaskCount, 'isSelected': true},
-        {'name': 'Work', 'count': 0, 'isSelected': false},
-        {'name': 'Personal', 'count': 0, 'isSelected': false},
-        {'name': 'School', 'count': 0, 'isSelected': false},
-        {'name': 'Shopping', 'count': 0, 'isSelected': false},
-      ];
-      _saveToHive();
+      setState(() {
+        folders = [
+          {'name': 'All iCloud', 'count': widget.totalNotesCount, 'isSelected': true},
+          {'name': 'Personal', 'count': 0, 'isSelected': false},
+          {'name': 'Work', 'count': 0, 'isSelected': false},
+          {'name': 'Ideas', 'count': 0, 'isSelected': false},
+          {'name': 'Journal', 'count': 0, 'isSelected': false},
+        ];
+        _saveToHive();
+      });
     }
   }
 
@@ -79,14 +84,20 @@ class _FoldersScreenState extends State<FoldersScreen> {
 
   @override
   Widget build(BuildContext context) {
+    if (folders.isEmpty) {
+      return const CupertinoPageScaffold(
+        backgroundColor: Color(0xFFF2F2F7),
+        child: Center(child: CupertinoActivityIndicator()),
+      );
+    }
+
     return CupertinoPageScaffold(
       backgroundColor: const Color(0xFFF2F2F7),
       navigationBar: CupertinoNavigationBar(
         backgroundColor: const Color(0xFFF2F2F7),
-        border: Border.all(color: Colors.transparent),
+        border: null,
         padding: const EdgeInsetsDirectional.only(end: 8.0),
         leading: Container(),
-        automaticallyImplyLeading: false,
         middle: null,
         trailing: CupertinoButton(
           padding: EdgeInsets.zero,
@@ -94,7 +105,7 @@ class _FoldersScreenState extends State<FoldersScreen> {
           child: Text(
             'Edit',
             style: TextStyle(
-              color: iconColor,
+              color: accentColor,
               fontSize: 16,
             ),
           ),
@@ -132,7 +143,7 @@ class _FoldersScreenState extends State<FoldersScreen> {
                     ),
                     Icon(
                       _showFolders ? CupertinoIcons.chevron_down : CupertinoIcons.chevron_right,
-                      color: iconColor,
+                      color: accentColor,
                       size: 16,
                     ),
                   ],
@@ -169,11 +180,10 @@ class _FoldersScreenState extends State<FoldersScreen> {
                           return GestureDetector(
                             onTap: () {
                               if (folders[index]['name'] == 'All iCloud') {
-
                                 Navigator.pushReplacement(
                                   context,
                                   CupertinoPageRoute(
-                                    builder: (context) => const HomeScreen(),
+                                    builder: (context) => const NotesScreen(),
                                   ),
                                 );
                               } else {
@@ -187,7 +197,7 @@ class _FoldersScreenState extends State<FoldersScreen> {
                                 children: [
                                   Icon(
                                     CupertinoIcons.folder,
-                                    color: iconColor,
+                                    color: accentColor,
                                     size: 24,
                                   ),
                                   const SizedBox(width: 12),
@@ -242,7 +252,7 @@ class _FoldersScreenState extends State<FoldersScreen> {
                           ),
                           Icon(
                             _showTags ? CupertinoIcons.chevron_down : CupertinoIcons.chevron_right,
-                            color: iconColor,
+                            color: accentColor,
                             size: 16,
                           ),
                         ],
@@ -289,16 +299,7 @@ class _FoldersScreenState extends State<FoldersScreen> {
                     onPressed: _showNewFolderDialog,
                     child: Icon(
                       CupertinoIcons.folder_badge_plus,
-                      color: iconColor,
-                      size: 22,
-                    ),
-                  ),
-                  CupertinoButton(
-                    padding: EdgeInsets.zero,
-                    onPressed: _showAddTaskDialog,
-                    child: Icon(
-                      CupertinoIcons.square_pencil,
-                      color: iconColor,
+                      color: accentColor,
                       size: 22,
                     ),
                   ),
@@ -368,24 +369,7 @@ class _FoldersScreenState extends State<FoldersScreen> {
     );
   }
 
-  void _showAddTaskDialog() {
-    showCupertinoDialog(
-      context: context,
-      builder: (_) => CupertinoAlertDialog(
-        title: const Text('Add Task'),
-        content: const Text('Add Task feature is not available in the Folders screen.'),
-        actions: [
-          CupertinoDialogAction(
-            child: const Text('OK'),
-            onPressed: () => Navigator.pop(context),
-          ),
-        ],
-      ),
-    );
-  }
-
   void _showDeleteFolderDialog(int index) {
-
     if (folders[index]['name'] == 'All iCloud') {
       showCupertinoDialog(
         context: context,
