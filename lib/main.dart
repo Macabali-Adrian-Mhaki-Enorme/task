@@ -731,7 +731,393 @@ class _NoteEditorScreenState extends State<NoteEditorScreen> {
       Navigator.pop(context);
     }
   }
+  // bottom formatting
+  // Show dialog to configure table before insertion
+  void _insertTable() {
+    int rows = 2;
+    int columns = 3;
 
+    showCupertinoModalPopup(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setState) => CupertinoActionSheet(
+          title: const Text('Insert Table'),
+          message: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Text('Rows:', style: TextStyle(fontSize: 16)),
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        CupertinoButton(
+                          padding: EdgeInsets.zero,
+                          onPressed: rows > 1 ? () => setState(() => rows--) : null,
+                          child: const Icon(CupertinoIcons.minus_circle),
+                        ),
+                        SizedBox(
+                          width: 40,
+                          child: Center(child: Text('$rows', style: const TextStyle(fontSize: 18))),
+                        ),
+                        CupertinoButton(
+                          padding: EdgeInsets.zero,
+                          onPressed: () => setState(() => rows++),
+                          child: const Icon(CupertinoIcons.plus_circle),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+                const SizedBox(width: 40),
+                Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Text('Columns:', style: TextStyle(fontSize: 16)),
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        CupertinoButton(
+                          padding: EdgeInsets.zero,
+                          onPressed: columns > 1 ? () => setState(() => columns--) : null,
+                          child: const Icon(CupertinoIcons.minus_circle),
+                        ),
+                        SizedBox(
+                          width: 40,
+                          child: Center(child: Text('$columns', style: const TextStyle(fontSize: 18))),
+                        ),
+                        CupertinoButton(
+                          padding: EdgeInsets.zero,
+                          onPressed: () => setState(() => columns++),
+                          child: const Icon(CupertinoIcons.plus_circle),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            CupertinoActionSheetAction(
+              onPressed: () {
+                Navigator.pop(context);
+                _createTable(rows, columns);
+              },
+              child: const Text('Insert'),
+            ),
+          ],
+          cancelButton: CupertinoActionSheetAction(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _createTable(int rows, int columns) {
+    final currentText = _contentController.text;
+    final textSelection = _contentController.selection;
+
+    // Create header row
+    String table = '\n';
+    String headerRow = '|';
+    String separator = '|';
+
+    for (int i = 0; i < columns; i++) {
+      headerRow += ' Column ${i + 1} |';
+      separator += '${'-' * 10}|';
+    }
+
+    table += headerRow + '\n' + separator + '\n';
+
+    // Create data rows
+    for (int i = 0; i < rows; i++) {
+      String dataRow = '|';
+      for (int j = 0; j < columns; j++) {
+        dataRow += '           |'; // Empty cells with space for content
+      }
+      table += dataRow + '\n';
+    }
+
+    table += '\n';
+
+    _contentController.text = currentText.replaceRange(
+      textSelection.start,
+      textSelection.end,
+      table,
+    );
+
+    // Place cursor at the beginning of the first cell
+    final cursorPosition = textSelection.start + headerRow.length + separator.length + 3;
+    _contentController.selection = TextSelection.collapsed(offset: cursorPosition);
+  }
+
+  void _insertBulletList() {
+    showCupertinoModalPopup(
+      context: context,
+      builder: (context) => CupertinoActionSheet(
+        title: const Text('Bullet List'),
+        actions: [
+          CupertinoActionSheetAction(
+            onPressed: () {
+              Navigator.pop(context);
+              _createList('• ', 3);
+            },
+            child: const Text('Standard Bullets (•)'),
+          ),
+          CupertinoActionSheetAction(
+            onPressed: () {
+              Navigator.pop(context);
+              _createList('- ', 3);
+            },
+            child: const Text('Dashes (-)'),
+          ),
+          CupertinoActionSheetAction(
+            onPressed: () {
+              Navigator.pop(context);
+              _createList('* ', 3);
+            },
+            child: const Text('Asterisks (*)'),
+          ),
+        ],
+        cancelButton: CupertinoActionSheetAction(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Cancel'),
+        ),
+      ),
+    );
+  }
+
+  void _createList(String bullet, int items) {
+    final currentText = _contentController.text;
+    final textSelection = _contentController.selection;
+
+    String list = '\n';
+    for (int i = 0; i < items; i++) {
+      list += '$bullet${i == 0 ? '' : 'Item ${i + 1}'}\n';
+    }
+    list += '\n';
+
+    _contentController.text = currentText.replaceRange(
+      textSelection.start,
+      textSelection.end,
+      list,
+    );
+
+    // Position cursor after the first bullet
+    final cursorPosition = textSelection.start + bullet.length + 1;
+    _contentController.selection = TextSelection.collapsed(offset: cursorPosition);
+  }
+
+  void _showTextFormattingOptions() {
+    showCupertinoModalPopup(
+      context: context,
+      builder: (context) => CupertinoActionSheet(
+        title: const Text('Text Formatting'),
+        actions: [
+          CupertinoActionSheetAction(
+            onPressed: () {
+              Navigator.pop(context);
+              _formatSelectedText('**', '**', 'Bold'); // Bold
+            },
+            child: const Text('Bold', style: TextStyle(fontWeight: FontWeight.bold)),
+          ),
+          CupertinoActionSheetAction(
+            onPressed: () {
+              Navigator.pop(context);
+              _formatSelectedText('_', '_', 'Italic'); // Italic
+            },
+            child: const Text('Italic', style: TextStyle(fontStyle: FontStyle.italic)),
+          ),
+          CupertinoActionSheetAction(
+            onPressed: () {
+              Navigator.pop(context);
+              _formatSelectedText('# ', '', 'Heading'); // Heading
+            },
+            child: const Text('Heading', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
+          ),
+          CupertinoActionSheetAction(
+            onPressed: () {
+              Navigator.pop(context);
+              _formatSelectedText('~', '~', 'Strikethrough'); // Strikethrough
+            },
+            child: const Text('Strikethrough', style: TextStyle(decoration: TextDecoration.lineThrough)),
+          ),
+        ],
+        cancelButton: CupertinoActionSheetAction(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Cancel'),
+        ),
+      ),
+    );
+  }
+
+  void _formatSelectedText(String prefix, String suffix, String formatName) {
+    final currentText = _contentController.text;
+    final selection = _contentController.selection;
+
+    // Show a brief toast notification
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('$formatName applied'),
+        duration: const Duration(seconds: 1),
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+
+    if (selection.isCollapsed) {
+      // No text selected, just insert at cursor
+      final newText = currentText.replaceRange(selection.start, selection.end, '$prefix$suffix');
+      _contentController.text = newText;
+      _contentController.selection = TextSelection.collapsed(
+        offset: selection.start + prefix.length,
+      );
+    } else {
+      // Format selected text
+      final selectedText = currentText.substring(selection.start, selection.end);
+      final newText = currentText.replaceRange(
+        selection.start,
+        selection.end,
+        '$prefix$selectedText$suffix',
+      );
+      _contentController.text = newText;
+      // Position cursor at the end of the formatted text
+      _contentController.selection = TextSelection.collapsed(
+        offset: selection.start + prefix.length + selectedText.length + suffix.length,
+      );
+    }
+  }
+
+  void _showMoreOptions() {
+    showCupertinoModalPopup(
+      context: context,
+      builder: (context) => CupertinoActionSheet(
+        title: const Text('More Options'),
+        actions: [
+          CupertinoActionSheetAction(
+            onPressed: () {
+              Navigator.pop(context);
+              _insertCheckList();
+            },
+            child: const Text('Checklist'),
+          ),
+          CupertinoActionSheetAction(
+            onPressed: () {
+              Navigator.pop(context);
+              _insertNumberedList();
+            },
+            child: const Text('Numbered List'),
+          ),
+          CupertinoActionSheetAction(
+            onPressed: () {
+              Navigator.pop(context);
+              _insertDivider();
+            },
+            child: const Text('Divider'),
+          ),
+          CupertinoActionSheetAction(
+            onPressed: () {
+              Navigator.pop(context);
+              _insertDateTime();
+            },
+            child: const Text('Date & Time'),
+          ),
+        ],
+        cancelButton: CupertinoActionSheetAction(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Cancel'),
+        ),
+      ),
+    );
+  }
+
+  void _insertCheckList() {
+    final itemCount = 3;
+    final currentText = _contentController.text;
+    final textSelection = _contentController.selection;
+
+    String checkList = '\n';
+    for (int i = 0; i < itemCount; i++) {
+      checkList += '□ ${i == 0 ? '' : 'Task ${i + 1}'}\n';
+    }
+    checkList += '\n';
+
+    _contentController.text = currentText.replaceRange(
+      textSelection.start,
+      textSelection.end,
+      checkList,
+    );
+
+    // Position cursor after the first checkbox
+    final cursorPosition = textSelection.start + 3;
+    _contentController.selection = TextSelection.collapsed(offset: cursorPosition);
+  }
+
+  void _insertNumberedList() {
+    final itemCount = 3;
+    final currentText = _contentController.text;
+    final textSelection = _contentController.selection;
+
+    String numberedList = '\n';
+    for (int i = 1; i <= itemCount; i++) {
+      numberedList += '$i. ${i == 1 ? '' : 'Item $i'}\n';
+    }
+    numberedList += '\n';
+
+    _contentController.text = currentText.replaceRange(
+      textSelection.start,
+      textSelection.end,
+      numberedList,
+    );
+
+    // Position cursor after the first number
+    final cursorPosition = textSelection.start + 4;
+    _contentController.selection = TextSelection.collapsed(offset: cursorPosition);
+  }
+
+  void _insertDivider() {
+    final currentText = _contentController.text;
+    final textSelection = _contentController.selection;
+    const divider = '\n\n------------------------------\n\n';
+
+    _contentController.text = currentText.replaceRange(
+      textSelection.start,
+      textSelection.end,
+      divider,
+    );
+
+    _contentController.selection = TextSelection.collapsed(
+      offset: textSelection.start + divider.length,
+    );
+  }
+
+  void _insertDateTime() {
+    final now = DateTime.now();
+    final formattedDate = DateFormat('EEEE, MMMM d, yyyy').format(now);
+    final formattedTime = DateFormat('h:mm a').format(now);
+    final dateTime = '$formattedDate at $formattedTime';
+
+    final currentText = _contentController.text;
+    final textSelection = _contentController.selection;
+
+    _contentController.text = currentText.replaceRange(
+      textSelection.start,
+      textSelection.end,
+      dateTime,
+    );
+
+    _contentController.selection = TextSelection.collapsed(
+      offset: textSelection.start + dateTime.length,
+    );
+  }
+
+
+  // methods
   @override
   Widget build(BuildContext context) {
     return CupertinoPageScaffold(
@@ -776,25 +1162,24 @@ class _NoteEditorScreenState extends State<NoteEditorScreen> {
                     ),
 
                     Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          CupertinoTextField(
+                      child: CupertinoScrollbar(
+                        child: SingleChildScrollView(
+                          physics: AlwaysScrollableScrollPhysics(),
+                          child: CupertinoTextField(
                             controller: _contentController,
                             placeholder: 'Start typing...',
                             maxLines: null,
-                            minLines: null, // Start with minimum 1 line
-                            expands: true,
+                            minLines: null,
                             decoration: const BoxDecoration(
                               border: Border(),
                             ),
                             style: const TextStyle(
                               fontSize: 17,
                             ),
-                            padding: const EdgeInsets.only(top: 8), // Adjust padding to push text up
+                            padding: const EdgeInsets.only(top: 8),
                             keyboardAppearance: Brightness.light,
                           ),
-                        ],
+                        ),
                       ),
                     ),
                   ],
@@ -815,22 +1200,22 @@ class _NoteEditorScreenState extends State<NoteEditorScreen> {
                 children: [
                   CupertinoButton(
                     padding: EdgeInsets.zero,
-                    onPressed: () {},
+                    onPressed: _insertTable,
                     child: const Icon(CupertinoIcons.table, size: 22),
                   ),
                   CupertinoButton(
                     padding: EdgeInsets.zero,
-                    onPressed: () {},
+                    onPressed: _showTextFormattingOptions,
                     child: const Icon(CupertinoIcons.textformat, size: 22),
                   ),
                   CupertinoButton(
                     padding: EdgeInsets.zero,
-                    onPressed: () {},
+                    onPressed: _insertBulletList,
                     child: const Icon(CupertinoIcons.list_bullet, size: 22),
                   ),
                   CupertinoButton(
                     padding: EdgeInsets.zero,
-                    onPressed: () {},
+                    onPressed: _showMoreOptions,
                     child: const Icon(CupertinoIcons.ellipsis, size: 22),
                   ),
                 ],
